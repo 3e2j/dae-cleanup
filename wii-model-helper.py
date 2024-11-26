@@ -1,10 +1,10 @@
 bl_info = {
     "name": "Wii Model Helper",
-    "blender": (4, 0, 0),  # Modify this to the correct Blender version if needed
+    "blender": (4, 0, 0),
     "category": "Cleanup-Export",
     "description": "Exported Wii Model .dae (from Switch Toolbox) cleanup and .glb export utility",
     "author": "Hat",
-    "version": (1, 0),
+    "version": (1, 0, 1),
 }
 
 import bpy
@@ -172,21 +172,21 @@ def rebuild_glb_file(output_path, json_data, chunks):
 
     # Calculate the total length of the GLB file
     json_chunk_length = len(new_json_data) + 8  # 8 bytes for the chunk header (chunkLength + chunkType)
-    binary_chunk_length = len(chunks[1]['data']) + 8  # Assuming the binary chunk is the second one (this may need adjustment)
+    binary_chunk_length = len(chunks[1]['data']) + 8  # Assuming the binary chunk is the second one
 
     total_length = 12 + json_chunk_length + binary_chunk_length  # header + JSON chunk + binary chunk
 
     # Rebuild the GLB file with updated JSON chunk
     with open(output_path, 'wb') as glb_file:
         # Write the header again
-        glb_file.write(struct.pack('<III', 0x46546C67, 2, total_length))  # magic, version, length
+        glb_file.write(struct.pack('<III', 0x46546C67, 2, total_length))  # magic (glTF), version, length
 
         # Write the JSON chunk
         glb_file.write(struct.pack('<II', len(new_json_data), 0x4E4F534A))  # chunkLength, chunkType (0x4E4F534A for JSON)
         glb_file.write(new_json_data)
 
         # Write the binary chunk (assuming it's the second chunk)
-        binary_chunk = chunks[1]  # Adjust if the binary chunk is in a different position
+        binary_chunk = chunks[1]
         glb_file.write(struct.pack('<II', len(binary_chunk['data']), binary_chunk['type']))  # chunkLength, chunkType
         glb_file.write(binary_chunk['data'])
 
@@ -371,7 +371,7 @@ class ExportGLBPanel(bpy.types.Panel):
         row = layout.row()
         row.label(text="Reformat/Fix textures", icon='TEXTURE')
         row = layout.row()
-        row.operator("process.textures_with_mirroring", text="Fix Wrapping Issues")
+        row.operator("process.condense_textures", text="Strip Wraps")
         
         layout.separator()
         
@@ -386,10 +386,10 @@ class ExportGLBPanel(bpy.types.Panel):
         row = layout.row()
         row.operator("export.glb_with_wraps", text="Export .glb with fixed wraps")
 
-class ProcessTexturesWithMirroringOperator(bpy.types.Operator):
-    """Operator to process textures with MIRROR wrap modes and reassign UVs"""
-    bl_idname = "process.textures_with_mirroring"
-    bl_label = "Process Textures with Mirroring"
+class CondenseWrapIntoTextureOperator(bpy.types.Operator):
+    """Operator to condense MIRROR wrap modes into texture variants"""
+    bl_idname = "process.condense_textures"
+    bl_label = "Condense Wraps into the original texture"
 
     def execute(self, context):
         dae_file_path = context.scene.dae_file_path
@@ -461,7 +461,7 @@ def register():
     bpy.utils.register_class(ExportGLBPanel)
     bpy.utils.register_class(ExportGLBWithWrapsOperator)
     bpy.utils.register_class(FixScalingOperator)
-    bpy.utils.register_class(ProcessTexturesWithMirroringOperator)
+    bpy.utils.register_class(CondenseWrapIntoTextureOperator)
 
     bpy.types.Scene.dae_file_path = bpy.props.StringProperty(name="DAE File Path", subtype="FILE_PATH")
     bpy.types.Scene.output_directory = bpy.props.StringProperty(name="Output Directory", subtype="DIR_PATH")
@@ -472,7 +472,7 @@ def unregister():
     bpy.utils.unregister_class(ExportGLBPanel)
     bpy.utils.unregister_class(ExportGLBWithWrapsOperator)
     bpy.utils.unregister_class(FixScalingOperator)
-    bpy.utils.unregister_class(ProcessTexturesWithMirroringOperator)
+    bpy.utils.unregister_class(CondenseWrapIntoTextureOperator)
 
     del bpy.types.Scene.dae_file_path
     del bpy.types.Scene.output_directory
